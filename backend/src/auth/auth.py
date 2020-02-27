@@ -35,15 +35,15 @@ class AuthError(Exception):
 
 
 def get_token_auth_header():
-    auth_header = request.headers['Authorization']
+    auth_header = request.headers.get('Authorization', None)
 
-    if 'Authorization' not in request.headers:
+    if not auth_header:
         raise AuthError({
             'code': 'authorization_header_missing',
             'description': 'Authorization header is expected.'
         }, 401)
 
-    header_parts = auth_header.split(' ')
+    header_parts = auth_header.split()
 
     if len(header_parts) != 2:
         raise AuthError({
@@ -82,9 +82,9 @@ def check_permissions(permission, payload):
 
     if permission not in payload['permissions']:
         raise AuthError({
-            'code': 'invalid_claims',
-            'description': 'Permissions not included in JWT.'
-        }, 403)
+            'code': 'unauthorized',
+            'description': 'Permissions not given.'
+        }, 401)
 
     return True
 
@@ -156,7 +156,7 @@ def verify_decode_jwt(token):
     raise AuthError({
                 'code': 'invalid_header',
                 'description': 'Unable to find the appropriate key.'
-            }, 400)
+            }, 401)
 
 
 '''

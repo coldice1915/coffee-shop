@@ -35,12 +35,12 @@ def get_drinks():
     if len(drinks) == 0:
         abort(404)
 
-    short_drinks = [drink.short() for drink in drinks]
+    short_drinks = [drink.long() for drink in drinks]
 
     return jsonify({
         'success': True,
         'drinks': short_drinks
-    }), 200
+    })
 
 
 '''
@@ -78,17 +78,17 @@ def get_drinks_detail(payload):
     drink an array containing only the newly created drink
         or appropriate status code indicating reason for failure
 '''
-@app.route('/drinks')
+@app.route('/drinks', methods=['POST'])
 @requires_auth('post:drinks')
 def create_drink(payload):
     data = request.get_json()
     title = data.get('title', None)
     recipe = data.get('recipe', None)
 
-    if title is None or recipe is None:
+    if (title is None or recipe is None):
         abort(404)
     try:
-        drink = Drink(title=title, recipe=recipe)
+        drink = Drink(title=title, recipe=json.dumps(recipe))
         drink.insert()
 
         return jsonify({
@@ -97,6 +97,7 @@ def create_drink(payload):
         }), 200
     except Exception:
         abort(422)
+
 
 '''
 @TODO implement endpoint
@@ -119,24 +120,23 @@ def edit_drinks(payload, drink_id):
         abort(404)
 
     data = request.get_json()
-    title = data['title']
-    recipe = data['recipe']
 
-    if title is None or recipe is None:
-        abort(404)
+    if 'title' in data:
+        drink.title = data['title']
+    if 'recipe' in data:
+        drink.recipe = json.dumps(data['recipe'])
 
     try:
-        drink.title = title
-        drink.recipe = recipe
-        drink.insert()
+        drink.update()
 
         return jsonify({
             'success': True,
-            'drinks': drink.long()
+            'drinks': [drink.long()]
         })
 
     except Exception:
         abort(422)
+
 
 '''
 @TODO implement endpoint
@@ -149,7 +149,7 @@ def edit_drinks(payload, drink_id):
     id is the id of the deleted record
         or appropriate status code indicating reason for failure
 '''
-@app.route('/drinks/<int:drink_id>')
+@app.route('/drinks/<int:drink_id>', methods=['DELETE'])
 @requires_auth('delete:drinks')
 def delete_drink(payload, drink_id):
     drink = Drink.query.filter_by(id=drink_id).one_or_none()
@@ -161,11 +161,12 @@ def delete_drink(payload, drink_id):
         drink.delete()
     except Exception:
         abort(422)
-    
+
     return jsonify({
         'success': True,
         'delete': drink_id
     })
+
 
 # Error Handling
 '''
@@ -195,9 +196,23 @@ def unprocessable(error):
 @TODO implement error handler for 404
     error handler should conform to general task above
 '''
+@app.errorhandler(404)
+def resource_not_found(error):
+    return jsonify({
+        "success": False,
+        "error": 404,
+        "message": "resource not found"
+    }), 404
 
 
 '''
 @TODO implement error handler for AuthError
     error handler should conform to general task above
 '''
+@app.errorhandler(AuthError)
+def auth_error(AuthError):
+    return jsonify({
+        'success': False,
+        'error': AuthError.status_code,
+        'message': AuthError.error
+    }), 401
